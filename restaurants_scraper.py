@@ -1,4 +1,5 @@
 import requests
+import os
 import ast
 import logging
 import argparse
@@ -13,12 +14,13 @@ PAGE_OFFSET_INTERVAL = 30
 BASE_URL = "https://www.tripadvisor.com"
 N_THREADS = 8  # Depends on personal computer threads
 DATE = datetime.now().strftime("%Y-%m-%d")
-
+path = 'C:/xampp/htdocs/tripadvisor-restaurant-scraper/'
 
 def get_html_and_parse(url):
     req = requests.get(url)
     url_html = BeautifulSoup(req.text, "html.parser")
     return url_html
+
 
 
 def _get_last_page_offset(url_html):
@@ -63,6 +65,8 @@ def city_filter(city):
         "Asuncion": ("g294080", "Asuncion"),
         "Sao Paulo": ("g303631", "Sao_Paulo_State_of_Sao_Paulo"),
         "La Paz": ("g294072", "La_Paz_La_Paz_Department"),
+        "Comunidad de Madrid": ("g562642", "Community_of_Madrid"),
+        "Madrid": ("g187514", "Madrid")
     }
     city_information = city_filter.get(city)
     if city_information is None:
@@ -88,6 +92,7 @@ def get_restaurants_info(restaurants_list, url_html, thread_pool):
     """
     def get_restaurant_info(restaurant_tag):
         restaurant_url = BASE_URL + restaurant_tag.get("href")
+        print(restaurant_url)
         restaurant_html = get_html_and_parse(restaurant_url)
         restaurant_data = restaurant_html.findAll("script")[1].contents[0]
         restaurant_data = ast.literal_eval(restaurant_data)
@@ -97,6 +102,11 @@ def get_restaurants_info(restaurants_list, url_html, thread_pool):
         else:
             logging.warning("Missing restaurant information")
 
+    
+    food_type = url_html.find_all('div', class_= 'MIajtJFg _1cBs8huC _3d9EnJpt')
+    cuisine = food_type[0].find('span',class_="_1p0FLy4t").text
+    print(cuisine)
+
     restaurants_component = url_html.findAll(attrs={"id": "component_2"})
     restaurants_tags = filter(
         lambda x: x.get("href").startswith("/Restaurant_Review")
@@ -104,7 +114,6 @@ def get_restaurants_info(restaurants_list, url_html, thread_pool):
         restaurants_component[0].findAll("a"),
     )
     thread_pool.map(lambda x: get_restaurant_info(x), restaurants_tags)
-
 
 def _set_cli():
     parser = argparse.ArgumentParser()
@@ -124,7 +133,7 @@ def _make_csv(restaurants_lists, city, date):
     df = DataFrame(restaurants_lists, columns=columns)
     csv_name = f"Restaurants_{city}_{date}.csv"
     logging.info(f"Saving CSV as {csv_name}")
-    df.to_csv(csv_name, index=False)
+    df.to_csv( path+csv_name , index=False)
 
 
 if __name__ == "__main__":
